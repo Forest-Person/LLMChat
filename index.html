@@ -1,177 +1,166 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Voice Input to Text</title>
-<style>
-body {
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    height: 100vh;
-    margin: 0;
-}
-.container {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-}
-.button {
-    margin: 20px;
-    padding: 10px 20px;
-    border: 2px solid black;
-    border-radius: 5px;
-    background-color: #3498db;
-    color: white;
-    cursor: pointer;
-}
-#responseHistory {
-    max-height: 200px;
-    overflow-y: auto;
-    border: 1px solid #ccc;
-    padding: 5px;
-    margin-top: 10px;
-}
-</style>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Voice Input to Text</title>
+  <style>
+    body {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+      margin: 0;
+    }
+    .container {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+    .button {
+      margin: 20px;
+      padding: 10px 20px;
+      border: 2px solid black;
+      border-radius: 5px;
+      background-color: #3498db;
+      color: white;
+      cursor: pointer;
+    }
+    #responseHistory {
+      max-height: 200px;
+      overflow-y: auto;
+      border: 1px solid #ccc;
+      padding: 5px;
+      margin-top: 10px;
+    }
+  </style>
 </head>
 <body>
-<div class="container">
+  <div class="container">
     <h1>LLM Chat</h1>
     <button class="button" id="startButton">Start Listening</button>
     <button class="button" id="stopButton">Stop Listening</button>
-    <button class="button" id="stopPlaybackButton" style="display: block;">Stop Playback</button>
-<input type="text" id="textInput" placeholder="Type your message">
+    <button class="button" id="stopPlaybackButton" style="display: none;">Stop Playback</button>
+    <input type="text" id="textInput" placeholder="Type your message">
     <button class="button" id="sendButton">Send</button>
     <div id="output"></div>
     <div id="responseHistory"></div>
-    
-</div>
+  </div>
 
-<script>
-const startButton = document.getElementById('startButton');
-const stopButton = document.getElementById('stopButton');
-const stopPlaybackButton = document.getElementById('stopPlaybackButton');
-const outputDiv = document.getElementById('output');
-const responseHistoryDiv = document.getElementById('responseHistory');
-const textInput = document.getElementById('textInput');
-const sendButton = document.getElementById('sendButton');
-const recognition = new webkitSpeechRecognition();
-const synth = window.speechSynthesis;
+  <script>
+    const startButton = document.getElementById('startButton');
+    const stopButton = document.getElementById('stopButton');
+    const stopPlaybackButton = document.getElementById('stopPlaybackButton');
+    const outputDiv = document.getElementById('output');
+    const responseHistoryDiv = document.getElementById('responseHistory');
+    const textInput = document.getElementById('textInput');
+    const sendButton = document.getElementById('sendButton');
+    const recognition = new webkitSpeechRecognition();
+    const synth = window.speechSynthesis;
 
-let isListening = false;
-let isRequestInProgress = false;
+    let isListening = false;
+    let isRequestInProgress = false;
+    let finalTranscript = '';
 
-// Set up speech recognition
-recognition.lang = 'en-US';
-recognition.continuous = true;
-recognition.interimResults = false;
-recognition.maxAlternatives = 1;
+    // Set up speech recognition
+    recognition.lang = 'en-US';
+    recognition.continuous = false;
+    recognition.interimResults = false;
+    recognition.maxAlternatives = 1;
 
-// Function to handle sending text to server for completion
-async function sendTextForCompletion(text) {
-  const url = 'http://127.0.0.1:8080/completion';
+    // Function to handle sending text to server for completion
+    async function sendTextForCompletion(text) {
+      const url = 'http://127.0.0.1:8080/completion';
 
-  try {
-    isRequestInProgress = true; // Set flag to true before sending request
-    const response = await fetch(url, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({ prompt:
-`<|user|>
-${text}.<|endoftext|>
-<|assistant|>
-`,"n_predict": 500 })
+      try {
+        isRequestInProgress = true;
+        const response = await fetch(url, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({ prompt: `<|user|>${text}<|endoftext|><|assistant|>`, n_predict: 50 })
+        });
+
+        if (!response.ok) {
+          throw new Error('Network response was not ok');
+        }
+
+        const responseData = await response.json();
+        return responseData.content;
+      } catch (error) {
+        console.error('Error:', error);
+        return 'Error: ' + error.message;
+      } finally {
+        isRequestInProgress = false;
+      }
+    }
+
+    // Function to speak text using text-to-speech API
+    function speakText(text) {
+      const utterance = new SpeechSynthesisUtterance(text);
+      synth.speak(utterance);
+      return utterance;
+    }
+
+    // Function to add response to history
+    function addToHistory(response) {
+      const p = document.createElement('p');
+      p.textContent = response;
+      responseHistoryDiv.appendChild(p);
+      responseHistoryDiv.scrollTop = responseHistoryDiv.scrollHeight;
+    }
+
+    // Handle recognition results
+    recognition.onresult = async function(event) {
+      const transcript = event.results[0][0].transcript;
+      finalTranscript += transcript;
+      outputDiv.textContent = 'You said: ' + finalTranscript;
+
+      if (event.results[0].isFinal) {
+        if (!isRequestInProgress && finalTranscript.trim() !== '') {
+          const completionResponse = await sendTextForCompletion(finalTranscript);
+          const utterance = speakText(completionResponse);
+          stopPlaybackButton.style.display = 'block';
+          stopPlaybackButton.onclick = function() {
+            synth.cancel();
+            stopPlaybackButton.style.display = 'none';
+          };
+          addToHistory(completionResponse);
+          utterance.onend = function() {
+            finalTranscript = '';
+            if (isListening) {
+              recognition.start();
+            }
+          };
+        }
+      }
+    };
+
+    startButton.addEventListener('click', function() {
+      isListening = true;
+      finalTranscript = '';
+      recognition.start();
     });
 
-    if (!response.ok) {
-      throw new Error('Network response was not ok');
-    }
+    stopButton.addEventListener('click', function() {
+      isListening = false;
+      recognition.stop();
+    });
 
-    const responseData = await response.json();
-    return responseData.content; // Return completion response
-  } catch (error) {
-    console.error('Error:', error);
-    return 'Error: ' + error.message;
-  } finally {
-    isRequestInProgress = false; // Reset flag to false after request completes
-  }
-}
-
-// Function to speak text using text-to-speech API
-function speakText(text) {
-  const utterance = new SpeechSynthesisUtterance(text);
-  synth.speak(utterance);
-  return utterance;
-}
-
-// Function to add response to history
-function addToHistory(response) {
-  const p = document.createElement('p');
-  p.textContent = response;
-  responseHistoryDiv.appendChild(p);
-  responseHistoryDiv.scrollTop = responseHistoryDiv.scrollHeight; // Scroll to bottom
-}
-
-// Function to start continuous listening
-function startContinuousListening() {
-  recognition.start();
-  isListening = true;
-
-  recognition.onresult = async function(event) {
-    const transcript = event.results[0][0].transcript;
-    outputDiv.textContent = 'You said: ' + transcript;
-
-    if (!isRequestInProgress && transcript.trim() !== '') {
-      // Send the transcript to the server for completion
-      const completionResponse = await sendTextForCompletion(transcript);
-
-      // Speak the completion response
-      const utterance = speakText(completionResponse);
-      stopPlaybackButton.style.display = 'block';
-      stopPlaybackButton.onclick = function() {
-        synth.cancel();
-        stopPlaybackButton.style.display = 'none';
-      };
-
-      // Add response to history
-      addToHistory(completionResponse);
-
-      // Start listening again after playback finishes
-      utterance.onend = function() {
-        if (isListening) {
-          startContinuousListening();
-        }
-      };
-    }
-  };
-}
-
-startButton.addEventListener('click', function() {
-  startContinuousListening();
-});
-
-stopButton.addEventListener('click', function() {
-  recognition.stop();
-  isListening = false;
-});
-
-sendButton.addEventListener('click', async function() {
-  const text = textInput.value.trim();
-  if (!isRequestInProgress && text !== '') {
-    const completionResponse = await sendTextForCompletion(text);
-    const utterance = speakText(completionResponse);
-    stopPlaybackButton.style.display = 'block';
-    stopPlaybackButton.onclick = function() {
-      synth.cancel();
-      stopPlaybackButton.style.display = 'none';
-    };
-    addToHistory(completionResponse);
-  }
-});
-
-</script>
+    sendButton.addEventListener('click', async function() {
+      const text = textInput.value.trim();
+      if (!isRequestInProgress && text !== '') {
+        const completionResponse = await sendTextForCompletion(text);
+        const utterance = speakText(completionResponse);
+        stopPlaybackButton.style.display = 'block';
+        stopPlaybackButton.onclick = function() {
+          synth.cancel();
+          stopPlaybackButton.style.display = 'none';
+        };
+        addToHistory(completionResponse);
+      }
+    });
+  </script>
 </body>
 </html>
