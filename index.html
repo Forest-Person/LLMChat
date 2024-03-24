@@ -79,7 +79,7 @@
           headers: {
             'Content-Type': 'application/json'
           },
-          body: JSON.stringify({ prompt: `<|user|>${text}<|endoftext|><|assistant|>`, n_predict: 50 })
+          body: JSON.stringify({ prompt: `<|user|>${text}<|endoftext|><|assistant|>`, n_predict: 25 })
         });
 
         if (!response.ok) {
@@ -104,10 +104,15 @@
     }
 
     // Function to add response to history
-    function addToHistory(response) {
-      const p = document.createElement('p');
-      p.textContent = response;
-      responseHistoryDiv.appendChild(p);
+    function addToHistory(userInput, response) {
+      const userHistoryItem = document.createElement('div');
+      userHistoryItem.textContent = `You said: ${userInput}`;
+      responseHistoryDiv.appendChild(userHistoryItem);
+
+      const responseHistoryItem = document.createElement('div');
+      responseHistoryItem.textContent = `Assistant: ${response}`;
+      responseHistoryDiv.appendChild(responseHistoryItem);
+
       responseHistoryDiv.scrollTop = responseHistoryDiv.scrollHeight;
     }
 
@@ -126,7 +131,7 @@
             synth.cancel();
             stopPlaybackButton.style.display = 'none';
           };
-          addToHistory(completionResponse);
+          addToHistory(finalTranscript, completionResponse);
           utterance.onend = function() {
             finalTranscript = '';
             if (isListening) {
@@ -158,7 +163,7 @@
           synth.cancel();
           stopPlaybackButton.style.display = 'none';
         };
-        addToHistory(completionResponse);
+        addToHistory(text, completionResponse);
       }
     });
   </script>
