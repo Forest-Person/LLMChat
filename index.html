@@ -32,6 +32,13 @@
       border: 1px solid #ccc;
       padding: 5px;
       margin-top: 10px;
+      font-family: Arial, sans-serif;
+    }
+    .user-text {
+      color: #2980b9;
+    }
+    .assistant-text {
+      color: #27ae60;
     }
   </style>
 </head>
@@ -79,7 +86,7 @@
           headers: {
             'Content-Type': 'application/json'
           },
-          body: JSON.stringify({ prompt: `<|user|>${text}<|endoftext|><|assistant|>`, n_predict: 25 })
+          body: JSON.stringify({ prompt: `<|user|>${text}<|endoftext|><|assistant|>`, n_predict: 50 })
         });
 
         if (!response.ok) {
@@ -105,14 +112,22 @@
 
     // Function to add response to history
     function addToHistory(userInput, response) {
+      const historyItem = document.createElement('div');
+
       const userHistoryItem = document.createElement('div');
       userHistoryItem.textContent = `You said: ${userInput}`;
-      responseHistoryDiv.appendChild(userHistoryItem);
+      userHistoryItem.classList.add('user-text');
+      historyItem.appendChild(userHistoryItem);
 
       const responseHistoryItem = document.createElement('div');
       responseHistoryItem.textContent = `Assistant: ${response}`;
-      responseHistoryDiv.appendChild(responseHistoryItem);
+      responseHistoryItem.classList.add('assistant-text');
+      historyItem.appendChild(responseHistoryItem);
 
+      const hr = document.createElement('hr');
+      historyItem.appendChild(hr);
+
+      responseHistoryDiv.appendChild(historyItem);
       responseHistoryDiv.scrollTop = responseHistoryDiv.scrollHeight;
     }
 
