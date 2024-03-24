@@ -48,6 +48,7 @@
     <button class="button" id="startButton">Start Listening</button>
     <button class="button" id="stopButton">Stop Listening</button>
     <button class="button" id="stopPlaybackButton" style="display: none;">Stop Playback</button>
+    <button class="button" id="replayButton" style="display: none;">Replay Last Response</button>
     <input type="text" id="textInput" placeholder="Type your message">
     <button class="button" id="sendButton">Send</button>
     <div id="output"></div>
@@ -58,6 +59,7 @@
     const startButton = document.getElementById('startButton');
     const stopButton = document.getElementById('stopButton');
     const stopPlaybackButton = document.getElementById('stopPlaybackButton');
+    const replayButton = document.getElementById('replayButton');
     const outputDiv = document.getElementById('output');
     const responseHistoryDiv = document.getElementById('responseHistory');
     const textInput = document.getElementById('textInput');
@@ -68,6 +70,7 @@
     let isListening = false;
     let isRequestInProgress = false;
     let finalTranscript = '';
+    let lastResponse = '';
 
     // Set up speech recognition
     recognition.lang = 'en-US';
@@ -110,6 +113,18 @@
       return utterance;
     }
 
+    // Function to replay the last response
+    function replayLastResponse() {
+      if (lastResponse) {
+        const utterance = speakText(lastResponse);
+        stopPlaybackButton.style.display = 'block';
+        stopPlaybackButton.onclick = function() {
+          synth.cancel();
+          stopPlaybackButton.style.display = 'none';
+        };
+      }
+    }
+
     // Function to add response to history
     function addToHistory(userInput, response) {
       const historyItem = document.createElement('div');
@@ -129,6 +144,9 @@
 
       responseHistoryDiv.appendChild(historyItem);
       responseHistoryDiv.scrollTop = responseHistoryDiv.scrollHeight;
+
+      lastResponse = response;
+      replayButton.style.display = 'inline-block';
     }
 
     // Handle recognition results
@@ -181,6 +199,8 @@
         addToHistory(text, completionResponse);
       }
     });
+
+    replayButton.addEventListener('click', replayLastResponse);
   </script>
 </body>
 </html>
