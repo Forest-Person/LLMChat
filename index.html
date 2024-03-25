@@ -153,7 +153,7 @@
     recognition.onresult = async function(event) {
       const transcript = event.results[0][0].transcript;
       finalTranscript += transcript;
-      outputDiv.textContent = 'You said: ' + finalTranscript;
+
 
       if (event.results[0].isFinal) {
         if (!isRequestInProgress && finalTranscript.trim() !== '') {
@@ -197,6 +197,7 @@
           stopPlaybackButton.style.display = 'none';
         };
         addToHistory(text, completionResponse);
+        textInput.value = ''; // Clear the text input field
       }
     });
 
