@@ -12,11 +12,13 @@
       height: 100vh;
       margin: 0;
     }
+
     .container {
       display: flex;
       flex-direction: column;
       align-items: center;
     }
+
     .button {
       margin: 20px;
       padding: 10px 20px;
@@ -26,6 +28,7 @@
       color: white;
       cursor: pointer;
     }
+
     #responseHistory {
       max-height: 200px;
       overflow-y: auto;
@@ -34,9 +37,11 @@
       margin-top: 10px;
       font-family: Arial, sans-serif;
     }
+
     .user-text {
       color: #2980b9;
     }
+
     .assistant-text {
       color: #27ae60;
     }
@@ -66,7 +71,6 @@
     const sendButton = document.getElementById('sendButton');
     const recognition = new webkitSpeechRecognition();
     const synth = window.speechSynthesis;
-
     let isListening = false;
     let isRequestInProgress = false;
     let finalTranscript = '';
@@ -75,13 +79,12 @@
     // Set up speech recognition
     recognition.lang = 'en-US';
     recognition.continuous = false;
-    recognition.interimResults = false;
+    recognition.interimResults = true;
     recognition.maxAlternatives = 1;
 
     // Function to handle sending text to server for completion
     async function sendTextForCompletion(text) {
       const url = 'http://127.0.0.1:8080/completion';
-
       try {
         isRequestInProgress = true;
         const response = await fetch(url, {
@@ -91,11 +94,9 @@
           },
           body: JSON.stringify({ prompt: `<|user|>${text}<|endoftext|><|assistant|>`, n_predict: 50 })
         });
-
         if (!response.ok) {
           throw new Error('Network response was not ok');
         }
-
         const responseData = await response.json();
         return responseData.content;
       } catch (error) {
@@ -128,7 +129,6 @@
     // Function to add response to history
     function addToHistory(userInput, response) {
       const historyItem = document.createElement('div');
-
       const userHistoryItem = document.createElement('div');
       userHistoryItem.textContent = `You said: ${userInput}`;
       userHistoryItem.classList.add('user-text');
@@ -151,20 +151,30 @@
 
     // Handle recognition results
     recognition.onresult = async function(event) {
-      const transcript = event.results[0][0].transcript;
-      finalTranscript += transcript;
+      let interimTranscript = '';
+      for (let i = event.resultIndex; i < event.results.length; ++i) {
+        if (event.results[i].isFinal) {
+          finalTranscript += event.results[i][0].transcript;
+        } else {
+          interimTranscript += event.results[i][0].transcript;
+        }
+      }
 
-
-      if (event.results[0].isFinal) {
+      outputDiv.innerHTML = interimTranscript;
+      outputDiv.textContent = finalTranscript
+      if (event.results[event.results.length - 1].isFinal) {
         if (!isRequestInProgress && finalTranscript.trim() !== '') {
           const completionResponse = await sendTextForCompletion(finalTranscript);
           const utterance = speakText(completionResponse);
+
           stopPlaybackButton.style.display = 'block';
           stopPlaybackButton.onclick = function() {
             synth.cancel();
             stopPlaybackButton.style.display = 'none';
           };
+
           addToHistory(finalTranscript, completionResponse);
+
           utterance.onend = function() {
             finalTranscript = '';
             if (isListening) {
@@ -197,6 +207,7 @@
           stopPlaybackButton.style.display = 'none';
         };
         addToHistory(text, completionResponse);
+        outputDiv.textContent=textInput.value
         textInput.value = ''; // Clear the text input field
       }
     });
