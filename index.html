@@ -81,7 +81,7 @@
     recognition.continuous = false;
     recognition.interimResults = true;
     recognition.maxAlternatives = 1;
-
+let lastResponseData =""
     // Function to handle sending text to server for completion
     async function sendTextForCompletion(text) {
       const url = 'http://127.0.0.1:8080/completion';
@@ -92,12 +92,22 @@
           headers: {
             'Content-Type': 'application/json'
           },
-          body: JSON.stringify({ prompt: `<|user|>${text}<|endoftext|><|assistant|>`, n_predict: 50 })
+          body: JSON.stringify({ prompt:
+`<|im_start|>system
+A conversation between a user and an
+LLM-based AI assistant.
+The assistant gives helpful and
+honest answers.<|im_end|>
+<|im_start|>user
+${lastResponseData + text}.<|im_end|>
+<|im_start|>assistant`,"n_predict": 50, "cache_prompt":true})
         });
         if (!response.ok) {
           throw new Error('Network response was not ok');
         }
+
         const responseData = await response.json();
+lastResponseData=responseData.content
         return responseData.content;
       } catch (error) {
         console.error('Error:', error);
