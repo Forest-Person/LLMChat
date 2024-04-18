@@ -1,21 +1,14 @@
 <!DOCTYPE html>
 <html lang="en">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<head>                                            <meta charset="UTF-8">                          <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Voice Input to Text</title>
-  <style>
-    body {
+  <style>                                           body {
       display: flex;
       justify-content: center;
       align-items: center;
       height: 100vh;
-      margin: 0;
-    }
-
-    .container {
-      display: flex;
-      flex-direction: column;
+      margin: 0;                                    }
+                                                    .container {                                      display: flex;                                  flex-direction: column;
       align-items: center;
     }
 
@@ -68,15 +61,6 @@
     const outputDiv = document.getElementById('output');
     const responseHistoryDiv = document.getElementById('responseHistory');
     const textInput = document.getElementById('textInput');
-    
-    textInput.addEventListener('keypress', function(event) {
-  if (event.key === 'Enter') {
-    event.preventDefault(); // Prevent default behavior of Enter key (form submission)
-    sendButton.click(); // Trigger the click event of the send button
-     textInput.blur(); // Lose focus on the text input
-  }
-});
-    
     const sendButton = document.getElementById('sendButton');
     const recognition = new webkitSpeechRecognition();
     const synth = window.speechSynthesis;
@@ -90,7 +74,7 @@
     recognition.continuous = false;
     recognition.interimResults = true;
     recognition.maxAlternatives = 1;
-
+let lastResponseData =""
     // Function to handle sending text to server for completion
     async function sendTextForCompletion(text) {
       const url = 'http://127.0.0.1:8080/completion';
@@ -101,12 +85,18 @@
           headers: {
             'Content-Type': 'application/json'
           },
-          body: JSON.stringify({ prompt: `<|user|>${lastResponse + text}<|endoftext|><|assistant|>`, n_predict: 50 })
+          body: JSON.stringify({ prompt:
+`<bos><start_of_turn>user
+${lastResponseData + text}<end_of_turn>
+<start_of_turn>model
+`,"repeat_penalty":1, "cache_prompt":true,"stream":true})
         });
         if (!response.ok) {
           throw new Error('Network response was not ok');
         }
+
         const responseData = await response.json();
+lastResponseData=responseData.content
         return responseData.content;
       } catch (error) {
         console.error('Error:', error);
@@ -218,7 +208,6 @@
         addToHistory(text, completionResponse);
         outputDiv.textContent=textInput.value
         textInput.value = ''; // Clear the text input field
-         textInput.blur(); // Lose focus on the text input
       }
     });
 
