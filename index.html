@@ -101,7 +101,12 @@
           headers: {
             'Content-Type': 'application/json'
           },
-          body: JSON.stringify({ prompt: `<|user|>${lastResponse + text}<|endoftext|><|assistant|>`, n_predict: 50 })
+         body: JSON.stringify({ prompt:
+`<bos><start_of_turn>user
+${lastResponse + text}<end_of_turn>
+<start_of_turn>model`,
+"repeat_penalty":1, 
+"cache_prompt":true})
         });
         if (!response.ok) {
           throw new Error('Network response was not ok');
