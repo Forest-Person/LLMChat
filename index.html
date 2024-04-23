@@ -3,6 +3,10 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
+<meta http-equiv="Pragma" content="no-cache" />
+<meta http-equiv="Expires" content="0" />
+<link rel="icon" href="data:,">
   <title>Voice Input to Text</title>
   <style>
     body {
@@ -68,15 +72,15 @@
     const outputDiv = document.getElementById('output');
     const responseHistoryDiv = document.getElementById('responseHistory');
     const textInput = document.getElementById('textInput');
-    
+
     textInput.addEventListener('keypress', function(event) {
-  if (event.key === 'Enter') {
-    event.preventDefault(); // Prevent default behavior of Enter key (form submission)
-    sendButton.click(); // Trigger the click event of the send button
-     textInput.blur(); // Lose focus on the text input
-  }
-});
-    
+      if (event.key === 'Enter') {
+        event.preventDefault(); // Prevent default behavior of Enter key (form submission)
+        sendButton.click(); // Trigger the click event of the send button
+        textInput.blur(); // Lose focus on the text input
+      }
+    });
+
     const sendButton = document.getElementById('sendButton');
     const recognition = new webkitSpeechRecognition();
     const synth = window.speechSynthesis;
@@ -91,35 +95,65 @@
     recognition.interimResults = true;
     recognition.maxAlternatives = 1;
 
-    // Function to handle sending text to server for completion
     async function sendTextForCompletion(text) {
-      const url = 'http://127.0.0.1:8080/completion';
-      try {
-        isRequestInProgress = true;
-        const response = await fetch(url, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json'
-          },
-         body: JSON.stringify({ prompt:
-`<bos><start_of_turn>user
-${lastResponse + text}<end_of_turn>
-<start_of_turn>model`,
-"repeat_penalty":1, 
-"cache_prompt":true})
-        });
-        if (!response.ok) {
-          throw new Error('Network response was not ok');
+  const url = 'http://127.0.0.1:8080/completion';
+  try {
+    isRequestInProgress = true;
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        prompt: text,
+        "stream": true,
+        "repeat_penalty": 1.1,
+        "cache_prompt": true
+      })
+    });
+
+    if (!response.ok) {
+      throw new Error('Network response was not ok');
+    }
+
+    const reader = response.body.getReader();
+    const decoder = new TextDecoder('utf-8');
+    let sentenceBuffer = ''; // Buffer to accumulate sentence chunks
+    let responseText = '';
+
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) {
+        break;
+      }
+      const chunkValue = decoder.decode(value, { stream: true });
+      const dataChunk = JSON.parse(chunkValue.replace('data: ', ''));
+      
+      if (typeof dataChunk.content === 'string' && dataChunk.content.trim() !== '') {
+        sentenceBuffer += dataChunk.content;
+        if (dataChunk.content.endsWith('.') || dataChunk.content.endsWith('!') || dataChunk.content.endsWith('?')) {
+          // If the chunk ends with a punctuation mark indicating end of sentence, play it back
+          const playUtterance = new SpeechSynthesisUtterance(sentenceBuffer.trim());
+playUtterance.rate = .9;
+          synth.speak(playUtterance);
+          responseText += sentenceBuffer; // Add to response text
+          sentenceBuffer = ''; // Clear the buffer for the next sentence
         }
-        const responseData = await response.json();
-        return responseData.content;
-      } catch (error) {
-        console.error('Error:', error);
-        return 'Error: ' + error.message;
-      } finally {
-        isRequestInProgress = false;
       }
     }
+
+    return responseText;
+  } catch (error) {
+    console.error('Error:', error);
+    return 'Error: ' + error.message;
+  } finally {
+    isRequestInProgress = false;
+  }
+}
+           
+       
+
+        
 
     // Function to speak text using text-to-speech API
     function speakText(text) {
@@ -176,10 +210,11 @@ ${lastResponse + text}<end_of_turn>
 
       outputDiv.innerHTML = interimTranscript;
       outputDiv.textContent = finalTranscript
+
       if (event.results[event.results.length - 1].isFinal) {
         if (!isRequestInProgress && finalTranscript.trim() !== '') {
           const completionResponse = await sendTextForCompletion(finalTranscript);
-          const utterance = speakText(completionResponse);
+          const utterance = speakText("");
 
           stopPlaybackButton.style.display = 'block';
           stopPlaybackButton.onclick = function() {
@@ -214,16 +249,16 @@ ${lastResponse + text}<end_of_turn>
       const text = textInput.value.trim();
       if (!isRequestInProgress && text !== '') {
         const completionResponse = await sendTextForCompletion(text);
-        const utterance = speakText(completionResponse);
+        const utterance = speakText("");
         stopPlaybackButton.style.display = 'block';
         stopPlaybackButton.onclick = function() {
           synth.cancel();
           stopPlaybackButton.style.display = 'none';
         };
         addToHistory(text, completionResponse);
-        outputDiv.textContent=textInput.value
+        outputDiv.textContent = textInput.value;
         textInput.value = ''; // Clear the text input field
-         textInput.blur(); // Lose focus on the text input
+        textInput.blur(); // Lose focus on the text input
       }
     });
 
