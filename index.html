@@ -95,8 +95,9 @@
     recognition.interimResults = true;
     recognition.maxAlternatives = 1;
 
-    async function sendTextForCompletion(text) {
+async function sendTextForCompletion(text) {
   const url = 'http://127.0.0.1:8080/completion';
+synth.cancel()
   try {
     isRequestInProgress = true;
     const response = await fetch(url, {
@@ -105,10 +106,11 @@
         'Content-Type': 'application/json'
       },
       body: JSON.stringify({
-        prompt: text,
+        "prompt": text+".",
         "stream": true,
-        "repeat_penalty": 1.1,
-        "cache_prompt": true
+        
+        "cache_prompt": true,
+        "n_predict": 50
       })
     });
 
@@ -120,24 +122,42 @@
     const decoder = new TextDecoder('utf-8');
     let sentenceBuffer = ''; // Buffer to accumulate sentence chunks
     let responseText = '';
+    let jsonData = ''; // Buffer to accumulate JSON data
 
     while (true) {
       const { done, value } = await reader.read();
       if (done) {
         break;
       }
+
       const chunkValue = decoder.decode(value, { stream: true });
-      const dataChunk = JSON.parse(chunkValue.replace('data: ', ''));
       
-      if (typeof dataChunk.content === 'string' && dataChunk.content.trim() !== '') {
-        sentenceBuffer += dataChunk.content;
-        if (dataChunk.content.endsWith('.') || dataChunk.content.endsWith('!') || dataChunk.content.endsWith('?')) {
-          // If the chunk ends with a punctuation mark indicating end of sentence, play it back
-          const playUtterance = new SpeechSynthesisUtterance(sentenceBuffer.trim());
-playUtterance.rate = .9;
-          synth.speak(playUtterance);
-          responseText += sentenceBuffer; // Add to response text
-          sentenceBuffer = ''; // Clear the buffer for the next sentence
+      const chunkParts = chunkValue.split('data: ');
+
+      for (let i = 1; i < chunkParts.length; i++) {
+        const part = chunkParts[i].trim();
+        if (part.startsWith('{')) {
+          const endIndex = part.lastIndexOf('}') + 1;
+          if (endIndex > 0) {
+            const jsonObject = JSON.parse(part.slice(0, endIndex));
+            jsonData += part.slice(endIndex); // Add any remaining non-JSON data to the buffer
+
+            if (typeof jsonObject.content === 'string' && jsonObject.content.trim() !== '') {
+              sentenceBuffer += jsonObject.content;
+              if (jsonObject.content.endsWith('.') || jsonObject.content.endsWith('!') || jsonObject.content.endsWith('?')) {
+                // If the chunk ends with a punctuation mark indicating end of sentence, play it back
+                const playUtterance = new SpeechSynthesisUtterance(sentenceBuffer.trim());
+                playUtterance.rate = .9;
+                synth.speak(playUtterance);
+                responseText += sentenceBuffer; // Add to response text
+                sentenceBuffer = ''; // Clear the buffer for the next sentence
+              }
+            }
+          } else {
+            jsonData += part; // Add non-JSON data to the buffer
+          }
+        } else {
+          jsonData += 'data: ' + part; // Add non-JSON data to the buffer
         }
       }
     }
@@ -150,8 +170,6 @@ playUtterance.rate = .9;
     isRequestInProgress = false;
   }
 }
-           
-       
 
         
 
@@ -246,7 +264,8 @@ playUtterance.rate = .9;
     });
 
     sendButton.addEventListener('click', async function() {
-      const text = textInput.value.trim();
+      const text = textInput.value.trim()+".";
+      
       if (!isRequestInProgress && text !== '') {
         const completionResponse = await sendTextForCompletion(text);
         const utterance = speakText("");
