@@ -56,7 +56,7 @@
     <h1>LLM Chat</h1>
     <button class="button" id="startButton">Start Listening</button>
     <button class="button" id="stopButton">Stop Listening</button>
-    <button class="button" id="stopPlaybackButton" style="display: none;">Stop Playback</button>
+    <button class="button" id="stopPlaybackButton" >Stop Playback</button>
     <button class="button" id="replayButton" style="display: none;">Replay Last Response</button>
     <input type="text" id="textInput" placeholder="Type your message">
     <button class="button" id="sendButton">Send</button>
@@ -108,7 +108,7 @@ synth.cancel()
       body: JSON.stringify({
         "prompt": text+".",
         "stream": true,
-        
+        "logit_bias": [["*",false]],
         "cache_prompt": true,
         "n_predict": 50
       })
@@ -184,10 +184,10 @@ synth.cancel()
     function replayLastResponse() {
       if (lastResponse) {
         const utterance = speakText(lastResponse);
-        stopPlaybackButton.style.display = 'block';
+        
         stopPlaybackButton.onclick = function() {
           synth.cancel();
-          stopPlaybackButton.style.display = 'none';
+         
         };
       }
     }
@@ -234,10 +234,10 @@ synth.cancel()
           const completionResponse = await sendTextForCompletion(finalTranscript);
           const utterance = speakText("");
 
-          stopPlaybackButton.style.display = 'block';
+         
           stopPlaybackButton.onclick = function() {
             synth.cancel();
-            stopPlaybackButton.style.display = 'none';
+          
           };
 
           addToHistory(finalTranscript, completionResponse);
@@ -269,10 +269,10 @@ synth.cancel()
       if (!isRequestInProgress && text !== '') {
         const completionResponse = await sendTextForCompletion(text);
         const utterance = speakText("");
-        stopPlaybackButton.style.display = 'block';
+        
         stopPlaybackButton.onclick = function() {
           synth.cancel();
-          stopPlaybackButton.style.display = 'none';
+          
         };
         addToHistory(text, completionResponse);
         outputDiv.textContent = textInput.value;
